@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Recruiter Verify
 
 A single-page tool for checking whether an inbound recruiter (or anyone messaging you) is likely legitimate — a weighted red-flag checklist, a threat-score readout, and quick search links across LinkedIn, Facebook, Instagram, X/Twitter, TikTok, and phone/company lookups.
@@ -51,3 +52,6 @@ No app store, no install review — it's just your own webpage saved as a shortc
 
 - The background world map is adapted from the "Simple SVG World Map" by Al MacDonald, edited by Fritz Lekschas, licensed **CC BY-SA 3.0**. If you modify and redistribute this project, keep that attribution.
 - This tool scores risk signals and generates search links — it does not verify identity on its own. The one step nothing here replaces: calling the company back on their own published phone number.
+=======
+# recon
+>>>>>>> b20682e89dc70f1b034cef13b91c5ab9b8bd141e
