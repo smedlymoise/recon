@@ -1,6 +1,6 @@
 {
-  "name": "Recruiter Verify",
-  "short_name": "RecruiterVerify",
+  "name": "Personnel Verify",
+  "short_name": "PersonnelVerify",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#050807",
