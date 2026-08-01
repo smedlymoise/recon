@@ -1136,7 +1136,7 @@
     <div class="checklist" id="checklist"></div>
 
     <div class="save-row">
-      <span id="search-status">enter a name to search</span>
+      <span id="search-status">enter a name and/or phone number</span>
       <button id="search-btn">[ search ]</button>
     </div>
 
@@ -1264,27 +1264,45 @@ function runSearch(){
   const company = document.getElementById('f-company').value.trim();
   const email = document.getElementById('f-email').value.trim();
   const domain = email.includes('@') ? email.split('@')[1] : '';
+  const phoneDigits = phone.replace(/[^\d]/g, '');
 
   const statusEl = document.getElementById('search-status');
-  if(!name){
-    statusEl.textContent = 'enter a name to search';
+  if(!name && !phone){
+    statusEl.textContent = 'enter at least a name or phone number';
     return;
   }
 
   const nameQ = encodeURIComponent(name);
   const nameCompanyQ = encodeURIComponent(`${name} ${company}`.trim());
 
-  const platforms = [
-    {label:'linkedin', url:`https://www.linkedin.com/search/results/all/?keywords=${nameQ}`},
-    {label:'facebook', url:`https://www.facebook.com/search/people/?q=${nameQ}`},
-    {label:'twitter / x', url:`https://twitter.com/search?q=${nameQ}&f=user`},
-    {label:'instagram', url:`https://www.google.com/search?q=${encodeURIComponent(name + ' site:instagram.com')}`},
-    {label:'tiktok', url:`https://www.tiktok.com/search/user?q=${nameQ}`},
-    {label:'general web', url:`https://www.google.com/search?q=${nameCompanyQ}`},
-  ];
-  if(phone){
-    platforms.push({label:'phone lookup', url:`https://www.google.com/search?q=${encodeURIComponent(phone + ' scam OR spam OR robocall')}`});
+  const platforms = [];
+
+  if(name){
+    platforms.push(
+      {label:'linkedin', url:`https://www.linkedin.com/search/results/all/?keywords=${nameQ}`},
+      {label:'facebook', url:`https://www.facebook.com/search/people/?q=${nameQ}`},
+      {label:'twitter / x', url:`https://twitter.com/search?q=${nameQ}&f=user`},
+      {label:'instagram', url:`https://www.google.com/search?q=${encodeURIComponent(name + ' site:instagram.com')}`},
+      {label:'tiktok', url:`https://www.tiktok.com/search/user?q=${nameQ}`},
+      {label:'general web', url:`https://www.google.com/search?q=${nameCompanyQ}`}
+    );
   }
+
+  if(phone){
+    platforms.push(
+      {label:'reverse phone lookup', url:`https://www.google.com/search?q=${encodeURIComponent(phone)}`},
+      {label:'scam / spam reports', url:`https://www.google.com/search?q=${encodeURIComponent(phone + ' scam OR spam OR robocall')}`},
+      {label:'robokiller lookup', url:`https://lookup.robokiller.com/p/${phoneDigits.slice(-10,-7)}-${phoneDigits.slice(-7,-4)}-${phoneDigits.slice(-4)}`},
+      {label:'youmail lookup', url:`https://www.youmail.com/phone/${phoneDigits}`}
+    );
+    if(name){
+      platforms.push({label:'number tied to this person?', url:`https://www.google.com/search?q=${encodeURIComponent(name + ' ' + phone)}`});
+    }
+    if(company){
+      platforms.push({label:'number tied to this company?', url:`https://www.google.com/search?q=${encodeURIComponent(phone + ' ' + company)}`});
+    }
+  }
+
   if(company){
     platforms.push({label:'company careers page', url:`https://www.google.com/search?q=${encodeURIComponent(company + ' official careers page')}`});
   }
@@ -1292,15 +1310,16 @@ function runSearch(){
     platforms.push({label:'email domain check', url:`https://www.google.com/search?q=${encodeURIComponent(domain + ' official website')}`});
   }
 
-  statusEl.textContent = `search built for "${name}"`;
+  statusEl.textContent = name ? `search built for "${name}"` : `search built for ${phone}`;
 
   const panel = document.getElementById('results-panel');
   const summaryEl = document.getElementById('results-summary');
   const linksEl = document.getElementById('results-links');
 
+
   summaryEl.innerHTML = '';
   const summaryRows = [
-    {k:'name', v:name},
+    name ? {k:'name', v:name} : null,
     company ? {k:'company', v:company} : null,
     phone ? {k:'phone', v:phone} : null,
     email ? {k:'email', v:email} : null,
