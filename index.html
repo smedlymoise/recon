@@ -458,6 +458,48 @@
   .results-links .link-row a:hover{ background:var(--green); color:#020403; }
   .results-links .link-row a::before{ content:"↗ open"; }
 
+  .identity-signals{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    padding:0 16px 14px;
+    margin-bottom:14px;
+    border-bottom:1px solid rgba(28,138,78,0.3);
+  }
+  .signal-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    border:1px solid rgba(28,138,78,0.5);
+    padding:8px 12px;
+  }
+  .signal-row .platform{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    letter-spacing:0.04em;
+    text-transform:capitalize;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .signal-badge{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.05em;
+    padding:4px 8px;
+    border:1px solid;
+    flex-shrink:0;
+  }
+  .signal-badge.good{ color:var(--green); border-color:var(--green-dim); background:rgba(51,255,136,0.08); }
+  .signal-badge.bad{ color:var(--amber); border-color:rgba(255,194,75,0.5); background:rgba(255,194,75,0.06); }
+  .signal-badge.checking{ color:var(--text-dim); border-color:rgba(28,138,78,0.4); }
+  .gravatar-thumb{
+    width:24px; height:24px;
+    border:1px solid var(--green-dim);
+  }
+
   /* ---------- collapsible checklist ---------- */
   .checklist-toggle{
     width:100%;
@@ -1143,6 +1185,7 @@
     <div class="results-panel" id="results-panel" style="display:none;">
       <div class="results-note">// links open each platform's own search results for this name — review manually, these are not confirmed profile matches.</div>
       <div class="results-summary" id="results-summary"></div>
+      <div class="identity-signals" id="identity-signals" style="display:none;"></div>
       <div class="results-links" id="results-links"></div>
     </div>
   </div>
@@ -1164,6 +1207,77 @@
 </div>
 
 <script>
+// --- compact MD5 implementation (public domain), needed only for building a Gravatar hash ---
+function md5(str){
+  function rotl(n,c){return (n<<c)|(n>>>(32-c));}
+  function toBytes(s){const b=[];for(let i=0;i<s.length;i++){let c=s.charCodeAt(i);
+    if(c<0x80)b.push(c);
+    else if(c<0x800){b.push(0xc0|(c>>6),0x80|(c&0x3f));}
+    else if(c<0xd800||c>=0xe000){b.push(0xe0|(c>>12),0x80|((c>>6)&0x3f),0x80|(c&0x3f));}
+    else{i++;c=0x10000+(((c&0x3ff)<<10)|(s.charCodeAt(i)&0x3ff));
+      b.push(0xf0|(c>>18),0x80|((c>>12)&0x3f),0x80|((c>>6)&0x3f),0x80|(c&0x3f));}
+  }return b;}
+  const K=[];for(let i=0;i<64;i++)K[i]=(Math.abs(Math.sin(i+1))*4294967296)|0;
+  const S=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+    4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  let bytes=toBytes(str);
+  const origLen=bytes.length;
+  bytes.push(0x80);
+  while(bytes.length%64!==56)bytes.push(0);
+  const bitLen=origLen*8;
+  for(let i=0;i<8;i++)bytes.push((bitLen/Math.pow(2,8*i))&0xff);
+  let a0=0x67452301,b0=0xefcdab89,c0=0x98badcfe,d0=0x10325476;
+  for(let chunk=0;chunk<bytes.length;chunk+=64){
+    const M=[];for(let i=0;i<16;i++){M[i]=bytes[chunk+i*4]|(bytes[chunk+i*4+1]<<8)|(bytes[chunk+i*4+2]<<16)|(bytes[chunk+i*4+3]<<24);}
+    let A=a0,B=b0,C=c0,D=d0;
+    for(let i=0;i<64;i++){
+      let F,g;
+      if(i<16){F=(B&C)|(~B&D);g=i;}
+      else if(i<32){F=(D&B)|(~D&C);g=(5*i+1)%16;}
+      else if(i<48){F=B^C^D;g=(3*i+5)%16;}
+      else{F=C^(B|~D);g=(7*i)%16;}
+      F=(F+A+K[i]+M[g])|0;
+      A=D;D=C;C=B;
+      B=(B+rotl(F,S[i]))|0;
+    }
+    a0=(a0+A)|0;b0=(b0+B)|0;c0=(c0+C)|0;d0=(d0+D)|0;
+  }
+  function toHex(n){let s='';for(let i=0;i<4;i++){s+=((n>>(i*8))&0xff).toString(16).padStart(2,'0');}return s;}
+  return toHex(a0)+toHex(b0)+toHex(c0)+toHex(d0);
+}
+
+// checks if a Gravatar image exists for this email (public, no login, no CORS issue for <img>)
+function checkGravatar(email){
+  return new Promise(resolve => {
+    const hash = md5(email.trim().toLowerCase());
+    const img = new Image();
+    const url = `https://www.gravatar.com/avatar/${hash}?d=404&s=80`;
+    img.onload = () => resolve({found:true, url});
+    img.onerror = () => resolve({found:false, url:null});
+    img.src = url;
+  });
+}
+
+// rough check: does the email's local-part share tokens with the claimed name?
+function emailMatchesName(email, name){
+  if(!email || !name) return null;
+  const local = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const localTokens = local.split(' ').filter(t => t.length > 1);
+  const nameTokens = name.toLowerCase().replace(/[^a-z\s]+/g, '').split(/\s+/).filter(t => t.length > 1);
+  if(nameTokens.length === 0 || localTokens.length === 0) return null;
+  const hit = nameTokens.some(nt => localTokens.some(lt => lt.includes(nt) || nt.includes(lt)));
+  return hit;
+}
+
+// rough check: does the email domain relate to the claimed company name?
+function domainMatchesCompany(domain, company){
+  if(!domain || !company) return null;
+  const domainCore = domain.toLowerCase().replace(/\.(com|net|org|io|co|biz|us)$/,'').replace(/[^a-z0-9]/g,'');
+  const companyCore = company.toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(!domainCore || !companyCore) return null;
+  return domainCore.includes(companyCore) || companyCore.includes(domainCore);
+}
+
 const items = [
   {id:'email-domain', weight:3, text:"Email domain doesn't match the company's real website (e.g. @acme-corp-hr.com instead of @acme.com)."},
   {id:'payment', weight:3, text:'They ask you to pay for anything — equipment, training, background check, "processing fee" — before you start.'},
@@ -1258,7 +1372,7 @@ document.getElementById('checklist-toggle').addEventListener('click', () => {
   document.getElementById('checklist').classList.toggle('open');
 });
 
-function runSearch(){
+async function runSearch(){
   const name = document.getElementById('f-name').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
   const company = document.getElementById('f-company').value.trim();
@@ -1367,6 +1481,70 @@ function runSearch(){
   });
 
   panel.style.display = 'block';
+
+  // --- identity signals: computed automatically, not just links to click ---
+  const signalsEl = document.getElementById('identity-signals');
+  signalsEl.innerHTML = '';
+  signalsEl.style.display = 'none';
+
+  const signalNote = document.createElement('div');
+  signalNote.className = 'results-note';
+  signalNote.style.padding = '0 0 4px';
+  signalNote.style.marginBottom = '4px';
+  signalNote.textContent = '// automated signals below — inconclusive on their own. a real person can still show "no match" (e.g. no Gravatar), and a scammer can occasionally clear one signal. treat as supporting evidence, not proof.';
+  signalsEl.appendChild(signalNote);
+
+  const signalRows = [];
+
+  const nameEmailMatch = emailMatchesName(email, name);
+  if(nameEmailMatch !== null){
+    signalRows.push({
+      label: 'email matches name',
+      value: nameEmailMatch ? 'LIKELY MATCH' : 'NO OBVIOUS MATCH',
+      good: nameEmailMatch
+    });
+  }
+
+  const domainCompanyMatch = domainMatchesCompany(domain, company);
+  if(domainCompanyMatch !== null){
+    signalRows.push({
+      label: 'domain matches company',
+      value: domainCompanyMatch ? 'LIKELY MATCH' : 'NO OBVIOUS MATCH',
+      good: domainCompanyMatch
+    });
+  }
+
+  if(signalRows.length > 0 || email){
+    signalsEl.style.display = 'block';
+    signalRows.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'signal-row';
+      row.innerHTML = `<span class="platform">${s.label}</span><span class="signal-badge ${s.good ? 'good' : 'bad'}">${s.value}</span>`;
+      signalsEl.appendChild(row);
+    });
+  }
+
+  if(email){
+    const gravatarRow = document.createElement('div');
+    gravatarRow.className = 'signal-row';
+    gravatarRow.innerHTML = `<span class="platform">gravatar profile</span><span class="signal-badge checking">CHECKING...</span>`;
+    signalsEl.appendChild(gravatarRow);
+    signalsEl.style.display = 'block';
+
+    const result = await checkGravatar(email);
+    const badge = gravatarRow.querySelector('.signal-badge');
+    if(result.found){
+      badge.className = 'signal-badge good';
+      badge.textContent = 'FOUND';
+      const img = document.createElement('img');
+      img.src = result.url;
+      img.className = 'gravatar-thumb';
+      gravatarRow.appendChild(img);
+    } else {
+      badge.className = 'signal-badge bad';
+      badge.textContent = 'NOT FOUND';
+    }
+  }
 }
 
 document.getElementById('search-btn').addEventListener('click', runSearch);
