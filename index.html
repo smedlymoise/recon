@@ -1136,7 +1136,7 @@
     <div class="checklist" id="checklist"></div>
 
     <div class="save-row">
-      <span id="search-status">enter a name and/or phone number</span>
+      <span id="search-status">enter any field(s) to search</span>
       <button id="search-btn">[ search ]</button>
     </div>
 
@@ -1267,8 +1267,8 @@ function runSearch(){
   const phoneDigits = phone.replace(/[^\d]/g, '');
 
   const statusEl = document.getElementById('search-status');
-  if(!name && !phone){
-    statusEl.textContent = 'enter at least a name or phone number';
+  if(!name && !phone && !company && !email){
+    statusEl.textContent = 'enter at least one field to search';
     return;
   }
 
@@ -1284,7 +1284,7 @@ function runSearch(){
       {label:'twitter / x', url:`https://twitter.com/search?q=${nameQ}&f=user`},
       {label:'instagram', url:`https://www.google.com/search?q=${encodeURIComponent(name + ' site:instagram.com')}`},
       {label:'tiktok', url:`https://www.tiktok.com/search/user?q=${nameQ}`},
-      {label:'general web', url:`https://www.google.com/search?q=${nameCompanyQ}`}
+      {label:'general web', url:`https://www.google.com/search?q=${nameCompanyQ || nameQ}`}
     );
   }
 
@@ -1304,13 +1304,32 @@ function runSearch(){
   }
 
   if(company){
-    platforms.push({label:'company careers page', url:`https://www.google.com/search?q=${encodeURIComponent(company + ' official careers page')}`});
+    platforms.push(
+      {label:'company careers page', url:`https://www.google.com/search?q=${encodeURIComponent(company + ' official careers page')}`},
+      {label:'company official website', url:`https://www.google.com/search?q=${encodeURIComponent(company + ' official website')}`},
+      {label:'company scam / complaints', url:`https://www.google.com/search?q=${encodeURIComponent(company + ' scam OR complaints OR reviews')}`},
+      {label:'company on linkedin', url:`https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(company)}`}
+    );
+    if(!name){
+      platforms.push({label:'company general web', url:`https://www.google.com/search?q=${encodeURIComponent(company)}`});
+    }
+  }
+
+  if(email){
+    platforms.push(
+      {label:'email address search', url:`https://www.google.com/search?q=${encodeURIComponent('"' + email + '"')}`},
+      {label:'email breach check (HIBP)', url:`https://haveibeenpwned.com/account/${encodeURIComponent(email)}`}
+    );
   }
   if(domain){
     platforms.push({label:'email domain check', url:`https://www.google.com/search?q=${encodeURIComponent(domain + ' official website')}`});
+    if(!company){
+      platforms.push({label:'who owns this domain?', url:`https://www.google.com/search?q=${encodeURIComponent(domain + ' whois OR "about us"')}`});
+    }
   }
 
-  statusEl.textContent = name ? `search built for "${name}"` : `search built for ${phone}`;
+  const primaryLabel = name || phone || company || email;
+  statusEl.textContent = `search built for "${primaryLabel}"`;
 
   const panel = document.getElementById('results-panel');
   const summaryEl = document.getElementById('results-summary');
